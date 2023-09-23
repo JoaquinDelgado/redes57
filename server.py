@@ -1,10 +1,13 @@
 import socket
 import threading as th
+import sys
+import time
+
+
 
 
 def main():
     # Obtener la dirección IP del servidor y el puerto desde los argumentos de línea de comandos
-    import sys
     if len(sys.argv) != 3:
         print("Uso: python server.py <ServerIP> <ServerPort>")
         sys.exit(1)
@@ -41,9 +44,8 @@ def main():
 ##         
 def handle_client(client_socket, client_address):
 
-    exit = False
     command = ""
-    while not exit:
+    while True:
         while True:
         # Recibir datos del cliente
             data = client_socket.recv(1024).decode()
@@ -53,21 +55,38 @@ def handle_client(client_socket, client_address):
                 break
         print(f"Datos recibidos: {command}")
         # Cerrar la conexión con el cliente
-        
+        if (command == "DESCONECTAR"):
+            client_socket.send('OK\n'.encode())
+            client_socket.close()
+            break
         if (command.find("CONECTAR") != -1):
-            puerto = command.replace("CONECTAR ", "")
+            puerto = command.replace(" ", "")
+            puerto = command.replace("CONECTAR", "")
+            print(f"Conectando al puerto {puerto}")
+            print(client_address)
+            print(puerto)
+            #checkear si el puerto es valido
+            try:
             # Inicio conexion udp al puerto especificado
-            udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            udp_socket.bind((client_address, int(puerto)))
+                if (int(puerto) > 1024 and int(puerto) < 65535):
+                    udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                    udp_socket.connect((client_address[0], int(puerto)))
+                    while True:
+                        time.sleep(1)
+                        udp_socket.send("Hola".encode())
+                else:
+                    raise Exception
+            except:
+                print("Puerto invalido")
+                client_socket.send('ERROR\n'.encode())
 
         if (command == "INTERRUMPIR"):
             print('interrumpiendo')
+            client_socket.send('OK\n'.encode())
         if (command == "CONTINUAR"):
             print('continuando')
-
-        if (command == "DESCONECTAR"):
-            client_socket.close()
-            exit = True
+            client_socket.send('OK\n'.encode())
+        
         command = ""
 
 
