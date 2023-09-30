@@ -26,6 +26,8 @@ def main():
 
     print(f"Servidor escuchando en {server_ip}:{server_port}")
 
+    th.Thread(target=escucharVLC, args=()).start()
+
     # Aceptar conexiones de clientes
     while True:
         client_socket, client_address = server_socket.accept()
@@ -40,6 +42,35 @@ def main():
 
     server_socket.close()
         
+
+### escucha rtp en el puerto 1234 en localhost
+def escucharVLC():
+    server_ip = 'localhost'
+    server_port = 1234
+
+    # Crea un socket UDP
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+    # Enlaza el socket a la dirección del servidor RTP
+    sock.bind((server_ip, server_port))
+
+    while True:
+        try:
+            # Recibe un paquete RTP
+            data, addr = sock.recvfrom(2048)  # Ajusta el tamaño del búfer según tus necesidades
+
+            # Procesa el paquete RTP aquí
+            # Puedes decodificar el paquete y realizar acciones según tus necesidades
+
+            # Ejemplo de impresión de la longitud de los datos recibidos
+            print("Longitud del paquete RTP recibido:", len(data))
+
+        except KeyboardInterrupt:
+            print("Deteniendo la recepción del flujo RTP por UDP...")
+            break
+    sock.close()
+
+
 
 ##         
 def handle_client(client_socket, client_address):
