@@ -3,10 +3,26 @@ import threading as th
 import sys
 import time
 
+global_list = []
+global_list_lock = th.Lock()
 
+# Función para agregar elementos a la lista global
+def add_to_global_list(item):
+    global global_list
+    with global_list_lock:
+        global_list.append(item)
+
+# Función para eliminar elementos de la lista global
+def remove_from_global_list(item):
+    global global_list
+    with global_list_lock:
+        if item in global_list:
+            global_list.remove(item)
 
 
 def main():
+    # Crear una lista global compartida
+    
     # Obtener la dirección IP del servidor y el puerto desde los argumentos de línea de comandos
     if len(sys.argv) != 3:
         print("Uso: python server.py <ServerIP> <ServerPort>")
@@ -35,13 +51,7 @@ def main():
 
         # Manejar la conexión con el cliente en un hilo o proceso separado si es necesario
         th.Thread(target=handle_client, args=(client_socket,client_address,)).start()
-
-        # # Logica para cerrar el servidor
-        # if input("Presione 'q' para cerrar el servidor: ") == 'q':
-        #     break
-
-    server_socket.close()
-        
+      
 
 ### escucha rtp en el puerto 1234 en localhost
 def escucharVLC():
@@ -57,13 +67,16 @@ def escucharVLC():
     while True:
         try:
             # Recibe un paquete RTP
-            data, addr = sock.recvfrom(2048)  # Ajusta el tamaño del búfer según tus necesidades
+            data, addr = sock.recvfrom(4096)  # Ajusta el tamaño del búfer según tus necesidades
 
             # Procesa el paquete RTP aquí
             # Puedes decodificar el paquete y realizar acciones según tus necesidades
 
-            # Ejemplo de impresión de la longitud de los datos recibidos
-            print("Longitud del paquete RTP recibido:", len(data))
+            # Envio a todos los clientes en la lista global
+            with global_list_lock:
+                for item in global_list:
+                    if item[1] == False:
+                        item[0].send(data)
 
         except KeyboardInterrupt:
             print("Deteniendo la recepción del flujo RTP por UDP...")
@@ -102,9 +115,9 @@ def handle_client(client_socket, client_address):
                 if (int(puerto) > 1024 and int(puerto) < 65535):
                     udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                     udp_socket.connect((client_address[0], int(puerto)))
-                    while True:
-                        time.sleep(1)
-                        udp_socket.send("Hola".encode())
+                    # Agregar el socket a la lista global
+                    add_to_global_list((udp_socket, False))
+                    client_socket.send('OK\n'.encode())
                 else:
                     raise Exception
             except:
