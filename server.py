@@ -11,13 +11,19 @@ def add_to_global_list(item):
     global global_list
     with global_list_lock:
         global_list.append(item)
+    return global_list.index(item)
 
 # Función para eliminar elementos de la lista global
-def remove_from_global_list(item):
+def remove_from_global_list(indice):
     global global_list
     with global_list_lock:
-        if item in global_list:
-            global_list.remove(item)
+        global_list.pop(indice)
+
+# Función para cambiar el booleano de un item por indice
+def change_item_bool(indice, bool):
+    global global_list
+    with global_list_lock:
+        global_list[indice] = (global_list[indice][0], bool)
 
 
 def main():
@@ -67,10 +73,8 @@ def escucharVLC():
     while True:
         try:
             # Recibe un paquete RTP
-            data, addr = sock.recvfrom(4096)  # Ajusta el tamaño del búfer según tus necesidades
-
-            # Procesa el paquete RTP aquí
-            # Puedes decodificar el paquete y realizar acciones según tus necesidades
+            data, addr = sock.recvfrom(3984)
+            
 
             # Envio a todos los clientes en la lista global
             with global_list_lock:
@@ -87,7 +91,7 @@ def escucharVLC():
 
 ##         
 def handle_client(client_socket, client_address):
-
+    indice = -1
     command = ""
     while True:
         while True:
@@ -100,7 +104,7 @@ def handle_client(client_socket, client_address):
         print(f"Datos recibidos: {command}")
         # Cerrar la conexión con el cliente
         if (command == "DESCONECTAR"):
-            client_socket.send('OK\n'.encode())
+            remove_from_global_list(indice)
             client_socket.close()
             break
         if (command.find("CONECTAR") != -1):
@@ -116,8 +120,9 @@ def handle_client(client_socket, client_address):
                     udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                     udp_socket.connect((client_address[0], int(puerto)))
                     # Agregar el socket a la lista global
-                    add_to_global_list((udp_socket, False))
+                    indice = add_to_global_list((udp_socket, False))
                     client_socket.send('OK\n'.encode())
+
                 else:
                     raise Exception
             except:
@@ -125,12 +130,18 @@ def handle_client(client_socket, client_address):
                 client_socket.send('ERROR\n'.encode())
 
         if (command == "INTERRUMPIR"):
-            print('interrumpiendo')
+            if indice >= 0 and indice < len(global_list):
+                change_item_bool(indice, True)
+                print('ip cliente ' + global_list[indice][0].getpeername()[0])
+                print('interrumpiendo cliente ' + str(indice))
             client_socket.send('OK\n'.encode())
+
         if (command == "CONTINUAR"):
-            print('continuando')
+            if indice >= 0 and indice < len(global_list):
+                change_item_bool(indice, False)
+                print('ip cliente ' + global_list[indice][0].getpeername()[0])
+                print('continuando cliente ' + str(indice))
             client_socket.send('OK\n'.encode())
-        
         command = ""
 
 
