@@ -7,6 +7,8 @@ global_list = []
 global_list_lock = th.Lock()
 
 # Función para agregar elementos a la lista global
+
+
 def add_to_global_list(item):
     global global_list
     with global_list_lock:
@@ -14,12 +16,16 @@ def add_to_global_list(item):
     return global_list.index(item)
 
 # Función para eliminar elementos de la lista global
+
+
 def remove_from_global_list(indice):
     global global_list
     with global_list_lock:
         global_list.pop(indice)
 
 # Función para cambiar el booleano de un item por indice
+
+
 def change_item_bool(indice, bool):
     global global_list
     with global_list_lock:
@@ -28,7 +34,7 @@ def change_item_bool(indice, bool):
 
 def main():
     # Crear una lista global compartida
-    
+
     # Obtener la dirección IP del servidor y el puerto desde los argumentos de línea de comandos
     if len(sys.argv) != 3:
         print("Uso: python server.py <ServerIP> <ServerPort>")
@@ -56,13 +62,14 @@ def main():
         print(f"Conexión entrante de {client_address}")
 
         # Manejar la conexión con el cliente en un hilo o proceso separado si es necesario
-        th.Thread(target=handle_client, args=(client_socket,client_address,)).start()
-      
+        th.Thread(target=handle_client, args=(
+            client_socket, client_address,)).start()
 
-### escucha rtp en el puerto 1234 en localhost
+
+# escucha rtp en el puerto 1234 en localhost
 def escucharVLC():
-    server_ip = 'localhost'
-    server_port = 1234
+    server_ip = '127.0.0.1'
+    server_port = 65534
 
     # Crea un socket UDP
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -74,7 +81,6 @@ def escucharVLC():
         try:
             # Recibe un paquete RTP
             data, addr = sock.recvfrom(3984)
-            
 
             # Envio a todos los clientes en la lista global
             with global_list_lock:
@@ -88,14 +94,13 @@ def escucharVLC():
     sock.close()
 
 
-
-##         
+##
 def handle_client(client_socket, client_address):
     indice = -1
     command = ""
     while True:
         while True:
-        # Recibir datos del cliente
+            # Recibir datos del cliente
             data = client_socket.recv(1024).decode()
             command += data
             if (command.find("\r\n") != -1):
@@ -113,11 +118,12 @@ def handle_client(client_socket, client_address):
             print(f"Conectando al puerto {puerto}")
             print(client_address)
             print(puerto)
-            #checkear si el puerto es valido
+            # checkear si el puerto es valido
             try:
-            # Inicio conexion udp al puerto especificado
+                # Inicio conexion udp al puerto especificado
                 if (int(puerto) > 1024 and int(puerto) < 65535):
-                    udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                    udp_socket = socket.socket(
+                        socket.AF_INET, socket.SOCK_DGRAM)
                     udp_socket.connect((client_address[0], int(puerto)))
                     # Agregar el socket a la lista global
                     indice = add_to_global_list((udp_socket, False))
