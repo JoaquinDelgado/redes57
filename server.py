@@ -2,9 +2,14 @@ import socket
 import threading as th
 import sys
 import time
+import signal
+
 
 global_list = []
 global_list_lock = th.Lock()
+threads = []
+server_socket = None
+client_sockets = []
 
 # Función para agregar elementos a la lista global
 
@@ -33,9 +38,9 @@ def change_item_bool(indice, bool):
 
 
 def main():
-    # Crear una lista global compartida
-
-    # Obtener la dirección IP del servidor y el puerto desde los argumentos de línea de comandos
+    global server_socket
+    global threads
+    global client_sockets
     if len(sys.argv) != 3:
         print("Uso: python server.py <ServerIP> <ServerPort>")
         sys.exit(1)
@@ -46,24 +51,28 @@ def main():
     # Crear un socket para el servidor
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-    # Enlazar el socket al servidor IP y puerto
     server_socket.bind((server_ip, server_port))
 
-    # Escuchar conexiones entrantes (se permite un máximo de 5 conexiones en espera)
     server_socket.listen(5)
 
     print(f"Servidor escuchando en {server_ip}:{server_port}")
 
-    th.Thread(target=escucharVLC, args=()).start()
+    thread = th.Thread(target=escucharVLC, args=())
+    thread.start()
+    print(thread)
+    threads.append(thread)
 
-    # Aceptar conexiones de clientes
-    while True:
+    while not exit_flag.is_set():
         client_socket, client_address = server_socket.accept()
+        client_sockets.append(client_socket)
+        # client_socket.settimeout(2)
         print(f"Conexión entrante de {client_address}")
 
         # Manejar la conexión con el cliente en un hilo o proceso separado si es necesario
-        th.Thread(target=handle_client, args=(
-            client_socket, client_address,)).start()
+        thread = th.Thread(target=handle_client, args=(
+            client_socket, client_address,))
+        thread.start()
+        threads.append(thread)
 
 
 # escucha rtp en el puerto 1234 en localhost
@@ -74,10 +83,9 @@ def escucharVLC():
     # Crea un socket UDP
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-    # Enlaza el socket a la dirección del servidor RTP
     sock.bind((server_ip, server_port))
 
-    while True:
+    while not exit_flag.is_set():
         try:
             # Recibe un paquete RTP
             data, addr = sock.recvfrom(3984)
@@ -86,27 +94,70 @@ def escucharVLC():
             with global_list_lock:
                 for item in global_list:
                     if item[1] == False:
-                        item[0].send(data)
+                        try:
+                            item[0].send(data)
+                        except (ConnectionRefusedError, ConnectionResetError):
+                            global_list.pop(global_list.index(item))
 
         except KeyboardInterrupt:
             print("Deteniendo la recepción del flujo RTP por UDP...")
             break
     sock.close()
 
+# Función para manejar la señal SIGINT (Ctrl+C)
+
+
+def signal_handler(sig, frame):
+    global server_socket
+    global threads
+    global client_sockets
+    print("Señal SIGINT recibida. Cerrando el programa...")
+    # Agrega cualquier lógica de limpieza que necesites aquí
+    # Indicamos a los hilos que deben salir
+
+    exit_flag.set()
+    print("Esperando a que los hilos terminen...")
+
+    for client_socket in client_sockets:
+        print(client_socket)
+        client_socket.close()
+
+    print(threads.__len__())
+    for thread in threads:
+        print(thread)
+        if thread:
+            thread.join()
+
+    print(server_socket)
+    server_socket.close()
+
+    print("Programa cerrado correctamente.")
+    sys.exit(0)
+
+    # Creamos una bandera para indicar a los hilos que deben salir
+exit_flag = th.Event()
+
+# Registramos el manejador de señal para SIGINT (Ctrl+C)
+signal.signal(signal.SIGINT, signal_handler)
+
 
 ##
 def handle_client(client_socket, client_address):
     indice = -1
     command = ""
-    while True:
-        while True:
+    while not exit_flag.is_set():
+        while not exit_flag.is_set():
             # Recibir datos del cliente
-            data = client_socket.recv(1024).decode()
+            try:
+                data = client_socket.recv(1024).decode()
+            except:
+                break
+            # except socket.timeout:
+            #   break
             command += data
             if (command.find("\r\n") != -1):
                 command = command.replace("\r\n", "")
                 break
-        print(f"Datos recibidos: {command}")
         # Cerrar la conexión con el cliente
         if (command == "DESCONECTAR"):
             remove_from_global_list(indice)
