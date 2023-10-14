@@ -59,7 +59,6 @@ def main():
 
         thread = th.Thread(target=escucharVLC, args=())
         thread.start()
-        print(thread)
         threads.append(thread)
 
         while not exit_flag.is_set():
@@ -73,38 +72,32 @@ def main():
             threads.append(thread)
 
     except Exception as e:
-        print(f"Error al iniciar el servidor: {e}")
+        pass
 
 
 def escucharVLC():
     server_ip = '127.0.0.1'
     server_port = 65534
-
-    # Crea un socket UDP
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
     sock.bind((server_ip, server_port))
 
     while not exit_flag.is_set():
         try:
-            # Recibe un paquete RTP
             data, addr = sock.recvfrom(1328)
 
-            # Envio a todos los clientes en la lista global
             with global_list_lock:
                 for item in global_list:
                     if item[1] == False:
                         try:
                             item[0].send(data)
-                        except (ConnectionRefusedError, ConnectionResetError):
+                        except (ConnectionRefusedError, ConnectionResetError) as exception:
                             global_list.pop(global_list.index(item))
 
         except KeyboardInterrupt:
             print("Deteniendo la recepción del flujo RTP por UDP...")
             break
     sock.close()
-
-# Función para manejar la señal SIGINT (Ctrl+C)
 
 
 def signal_handler(sig, frame):
@@ -116,7 +109,6 @@ def signal_handler(sig, frame):
     exit_flag.set()
 
     for client_socket in client_sockets:
-        print(client_socket)
         client_socket.shutdown(socket.SHUT_RDWR)
         client_socket.close()
 
@@ -159,13 +151,11 @@ def handle_client(client_socket, client_address):
             puerto = command.replace("CONECTAR", "")
             print(f"Conectando al puerto {puerto}")
             print(client_address)
-            print(puerto)
             try:
                 if (int(puerto) > 1024 and int(puerto) < 65535):
                     udp_socket = socket.socket(
                         socket.AF_INET, socket.SOCK_DGRAM)
                     udp_socket.connect((client_address[0], int(puerto)))
-                    # Agregar el socket a la lista global
                     indice = add_to_global_list((udp_socket, False))
                     comando = 'OK\n'.encode()
                     sendAll(comando, client_socket)
