@@ -27,6 +27,7 @@ def abrir_vlc(comando):
             proceso_vlc.wait()
             break
 
+
 def main():
     argv = sys.argv
     print(argv)
@@ -71,8 +72,6 @@ def main():
                 time.sleep(1)
                 sendAll(comando, client_socket)
                 respuestaServidor(client_socket)
-
-
         else:
             print("Comando no reconocido")
 
