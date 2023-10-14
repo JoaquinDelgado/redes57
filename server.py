@@ -1,3 +1,7 @@
+# Joaquin Delgado 45464043
+# Joaquin Gonzalez 51648875
+# Valery Nater 48177512
+
 import socket
 import threading as th
 import sys
