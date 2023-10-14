@@ -2,6 +2,7 @@ import socket
 import sys
 import subprocess
 import threading
+import time
 
 detener_vlc = threading.Event()
 
@@ -62,13 +63,16 @@ def main():
                 print("VLC ya está en ejecución.")
             else:
                 comando = f"{comando} {puerto_vlc}\r\n".encode()
-                sendAll(comando, client_socket)
                 local_ip = client_socket.getsockname()[0]
                 comandoVar = "vlc rtp://"+local_ip+":"+puerto_vlc.__str__()
                 thread_vlc = threading.Thread(
                     target=abrir_vlc, args=(comandoVar,))
                 thread_vlc.start()
+                time.sleep(1)
+                sendAll(comando, client_socket)
                 respuestaServidor(client_socket)
+
+
         else:
             print("Comando no reconocido")
 
