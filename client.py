@@ -76,7 +76,6 @@ def main():
 
 def respuestaServidor(client_socket):
     respuesta = client_socket.recv(1024).decode()
-    print(respuesta)
     if (respuesta == "OK\n"):
         print(respuesta)
 
