@@ -11,6 +11,15 @@ server_socket = None
 client_sockets = []
 
 
+def sendAll(comando, socket):
+    total_sent = 0
+    while total_sent < comando.__sizeof__():
+        bytes_sent = socket.send(comando[total_sent:])
+        if bytes_sent == 0:
+            break
+        total_sent += bytes_sent
+
+
 def add_to_global_list(item):
     with global_list_lock:
         global_list.append(item)
@@ -133,18 +142,14 @@ def handle_client(client_socket, client_address):
     command = ""
     while not exit_flag.is_set():
         while not exit_flag.is_set():
-            # Recibir datos del cliente
             try:
                 data = client_socket.recv(1024).decode()
             except:
                 break
-            # except socket.timeout:
-            #   break
             command += data
             if (command.find("\r\n") != -1):
                 command = command.replace("\r\n", "")
                 break
-        # Cerrar la conexión con el cliente
         if (command == "DESCONECTAR"):
             remove_from_global_list(indice)
             client_socket.close()
@@ -155,36 +160,38 @@ def handle_client(client_socket, client_address):
             print(f"Conectando al puerto {puerto}")
             print(client_address)
             print(puerto)
-            # checkear si el puerto es valido
             try:
-                # Inicio conexion udp al puerto especificado
                 if (int(puerto) > 1024 and int(puerto) < 65535):
                     udp_socket = socket.socket(
                         socket.AF_INET, socket.SOCK_DGRAM)
                     udp_socket.connect((client_address[0], int(puerto)))
                     # Agregar el socket a la lista global
                     indice = add_to_global_list((udp_socket, False))
-                    client_socket.send('OK\n'.encode())
+                    comando = 'OK\n'.encode()
+                    sendAll(comando, client_socket)
 
                 else:
                     raise Exception
             except:
                 print("Puerto invalido")
-                client_socket.send('ERROR\n'.encode())
+                comando = 'ERROR\n'.encode()
+                sendAll(comando, client_socket)
 
         if (command == "INTERRUMPIR"):
             if indice >= 0 and indice < len(global_list):
                 change_item_bool(indice, True)
                 print('ip cliente ' + global_list[indice][0].getpeername()[0])
                 print('interrumpiendo cliente ' + str(indice))
-            client_socket.send('OK\n'.encode())
+            comando = 'OK\n'.encode()
+            sendAll(comando, client_socket)
 
         if (command == "CONTINUAR"):
             if indice >= 0 and indice < len(global_list):
                 change_item_bool(indice, False)
                 print('ip cliente ' + global_list[indice][0].getpeername()[0])
                 print('continuando cliente ' + str(indice))
-            client_socket.send('OK\n'.encode())
+            comando = 'OK\n'.encode()
+            sendAll(comando, client_socket)
         command = ""
     client_socket.close()
 
