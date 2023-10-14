@@ -27,6 +27,15 @@ def abrir_vlc(comando):
             break
 
 
+def get_ipv4_address(interface_name="Wi-Fi"):
+    try:
+        host_name = socket.gethostname()
+        host_ip = socket.gethostbyname(host_name)
+        return host_ip
+    except socket.gaierror:
+        return None
+
+
 def main():
     argv = sys.argv
     print(argv)
@@ -64,8 +73,15 @@ def main():
             else:
                 comando = f"{comando} {puerto_vlc}\r\n".encode()
                 sendAll(comando, client_socket)
-                direccion_ip_local = socket.gethostbyname(socket.gethostname())
-                comandoVar = "vlc rtp://"+direccion_ip_local+":"+puerto_vlc.__str__()
+                ipv4_address = get_ipv4_address("Wi-Fi")
+                if ipv4_address:
+                    print(
+                        f"Tu dirección IPv4 en la interfaz de Wi-Fi es: {ipv4_address}")
+                else:
+                    print(
+                        "No se pudo obtener la dirección IPv4 en la interfaz de Wi-Fi.")
+
+                comandoVar = "vlc rtp://"+ipv4_address+":"+puerto_vlc.__str__()
                 thread_vlc = threading.Thread(
                     target=abrir_vlc, args=(comandoVar,))
                 thread_vlc.start()
