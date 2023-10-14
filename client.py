@@ -84,6 +84,8 @@ def respuestaServidor(client_socket):
     respuesta = client_socket.recv(1024).decode()
     if (respuesta == "OK\n"):
         print(respuesta)
+    elif (respuesta == "ERROR\n"):
+        print("Hubo un error procesando el comando en el servidor.")
 
 
 if __name__ == "__main__":
