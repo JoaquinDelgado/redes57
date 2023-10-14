@@ -1,5 +1,30 @@
 import socket
 import sys
+import subprocess
+import threading
+
+detener_vlc = threading.Event()
+
+
+def sendAll(comando, socket):
+    total_sent = 0
+    while total_sent < comando.__sizeof__():
+        bytes_sent = socket.send(comando[total_sent:])
+        if bytes_sent == 0:
+            break
+        total_sent += bytes_sent
+
+
+def abrir_vlc(comando):
+    global detener_vlc
+    proceso_vlc = subprocess.Popen(
+        comando, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+    while True:
+        if detener_vlc.is_set():
+            proceso_vlc.terminate()
+            proceso_vlc.wait()
+            break
 
 
 def main():
@@ -9,35 +34,49 @@ def main():
     server_ip = sys.argv[1]
     puerto_vlc = int(sys.argv[3])
 
-    # Crear un socket para el cliente
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    # Leer la IP y puerto del servidor de los argumentos de linea de commando
-
-    # Conectar el socket al servidor
     client_socket.connect((server_ip, server_port))
+
+    thread_vlc = None
 
     while True:
         comando = input("Ingrese el comando: ")
 
         if (comando == "DESCONECTAR"):
-            client_socket.send(f"{comando}\r\n".encode())
+            if thread_vlc is not None:
+                detener_vlc.set()
+                thread_vlc.join()
+            comando = f"{comando}\r\n".encode()
+            sendAll(comando, client_socket)
             client_socket.close()
-            sys.exit(1)
+            sys.exit(0)
         elif (comando == "INTERRUMPIR"):
-            client_socket.send(f"{comando}\r\n".encode())
+            comando = f"{comando}\r\n".encode()
+            sendAll(comando, client_socket)
             respuestaServidor(client_socket)
         elif (comando == "CONTINUAR"):
-            client_socket.send(f"{comando}\r\n".encode())
+            comando = f"{comando}\r\n".encode()
+            sendAll(comando, client_socket)
             respuestaServidor(client_socket)
         elif comando == "CONECTAR":
-            client_socket.send(f"{comando} {puerto_vlc}\r\n".encode())
-            respuestaServidor(client_socket)
+            if thread_vlc is not None and thread_vlc.is_alive():
+                print("VLC ya está en ejecución.")
+            else:
+                comando = f"{comando} {puerto_vlc}\r\n".encode()
+                sendAll(comando, client_socket)
+                direccion_ip_local = socket.gethostbyname(socket.gethostname())
+                comandoVar = "vlc rtp://"+direccion_ip_local+":"+puerto_vlc.__str__()
+                thread_vlc = threading.Thread(
+                    target=abrir_vlc, args=(comandoVar,))
+                thread_vlc.start()
+                respuestaServidor(client_socket)
         else:
             print("Comando no reconocido")
 
 
 def respuestaServidor(client_socket):
     respuesta = client_socket.recv(1024).decode()
+    print(respuesta)
     if (respuesta == "OK\n"):
         print(respuesta)
 
