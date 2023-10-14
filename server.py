@@ -1,9 +1,8 @@
 import socket
 import threading as th
 import sys
-import time
 import signal
-
+import time
 
 global_list = []
 global_list_lock = th.Lock()
@@ -11,30 +10,25 @@ threads = []
 server_socket = None
 client_sockets = []
 
-# Función para agregar elementos a la lista global
-
 
 def add_to_global_list(item):
-    global global_list
     with global_list_lock:
         global_list.append(item)
     return global_list.index(item)
 
-# Función para eliminar elementos de la lista global
-
 
 def remove_from_global_list(indice):
-    global global_list
     with global_list_lock:
-        global_list.pop(indice)
-
-# Función para cambiar el booleano de un item por indice
+        if 0 <= indice < len(global_list):
+            item = global_list.pop(indice)
+            if item:
+                item[0].close()
 
 
 def change_item_bool(indice, bool):
-    global global_list
     with global_list_lock:
-        global_list[indice] = (global_list[indice][0], bool)
+        if 0 <= indice < len(global_list):
+            global_list[indice] = (global_list[indice][0], bool)
 
 
 def main():
@@ -48,34 +42,31 @@ def main():
     server_ip = sys.argv[1]
     server_port = int(sys.argv[2])
 
-    # Crear un socket para el servidor
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server_socket.bind((server_ip, server_port))
+        server_socket.listen(5)
+        print(f"Servidor escuchando en {server_ip}:{server_port}")
 
-    server_socket.bind((server_ip, server_port))
-
-    server_socket.listen(5)
-
-    print(f"Servidor escuchando en {server_ip}:{server_port}")
-
-    thread = th.Thread(target=escucharVLC, args=())
-    thread.start()
-    print(thread)
-    threads.append(thread)
-
-    while not exit_flag.is_set():
-        client_socket, client_address = server_socket.accept()
-        client_sockets.append(client_socket)
-        # client_socket.settimeout(2)
-        print(f"Conexión entrante de {client_address}")
-
-        # Manejar la conexión con el cliente en un hilo o proceso separado si es necesario
-        thread = th.Thread(target=handle_client, args=(
-            client_socket, client_address,))
+        thread = th.Thread(target=escucharVLC, args=())
         thread.start()
+        print(thread)
         threads.append(thread)
 
+        while not exit_flag.is_set():
+            client_socket, client_address = server_socket.accept()
+            client_sockets.append(client_socket)
+            print(f"Conexión entrante de {client_address}")
 
-# escucha rtp en el puerto 1234 en localhost
+            thread = th.Thread(target=handle_client, args=(
+                client_socket, client_address,))
+            thread.start()
+            threads.append(thread)
+
+    except Exception as e:
+        print(f"Error al iniciar el servidor: {e}")
+
+
 def escucharVLC():
     server_ip = '127.0.0.1'
     server_port = 65534
@@ -88,7 +79,7 @@ def escucharVLC():
     while not exit_flag.is_set():
         try:
             # Recibe un paquete RTP
-            data, addr = sock.recvfrom(3984)
+            data, addr = sock.recvfrom(1328)
 
             # Envio a todos los clientes en la lista global
             with global_list_lock:
@@ -112,36 +103,31 @@ def signal_handler(sig, frame):
     global threads
     global client_sockets
     print("Señal SIGINT recibida. Cerrando el programa...")
-    # Agrega cualquier lógica de limpieza que necesites aquí
-    # Indicamos a los hilos que deben salir
 
     exit_flag.set()
-    print("Esperando a que los hilos terminen...")
 
     for client_socket in client_sockets:
         print(client_socket)
+        client_socket.shutdown(socket.SHUT_RDWR)
         client_socket.close()
 
-    print(threads.__len__())
     for thread in threads:
-        print(thread)
-        if thread:
+        if thread and thread.is_alive():
             thread.join()
 
-    print(server_socket)
-    server_socket.close()
+    if server_socket:
+        server_socket.shutdown(socket.SHUT_RDWR)
+        server_socket.close()
 
     print("Programa cerrado correctamente.")
+    time.sleep(1)
     sys.exit(0)
 
-    # Creamos una bandera para indicar a los hilos que deben salir
-exit_flag = th.Event()
 
-# Registramos el manejador de señal para SIGINT (Ctrl+C)
+exit_flag = th.Event()
 signal.signal(signal.SIGINT, signal_handler)
 
 
-##
 def handle_client(client_socket, client_address):
     indice = -1
     command = ""
@@ -200,6 +186,7 @@ def handle_client(client_socket, client_address):
                 print('continuando cliente ' + str(indice))
             client_socket.send('OK\n'.encode())
         command = ""
+    client_socket.close()
 
 
 if __name__ == "__main__":
