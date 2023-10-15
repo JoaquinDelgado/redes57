@@ -151,7 +151,6 @@ def handle_client(client_socket, client_address):
             client_socket.close()
             break
         if (command.find("CONECTAR") != -1):
-            puerto = command.replace(" ", "")
             puerto = command.replace("CONECTAR", "")
             print(f"Conectando al puerto {puerto}")
             print(client_address)
